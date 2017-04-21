@@ -1,0 +1,91 @@
+go
+CREATE DATABASE parquea2
+
+use parquea2 -- Ponemos en uso la base de Datos
+
+GO
+create table ESPACIO -- Para la creación de la tabla ESPACIO
+(
+	IdParqueo int identity primary key not null,
+	EspacioTotal int, 
+	EspacioOcupado int
+)
+GO
+Create table VEHICULOS -- Para la creación de la tabla VEHICULOS
+(
+	IdParqueo int identity primary key not null,
+	CódigoPlaca int, 
+	TiempoEstadia float,
+	FechaIngreso date,
+	HoraIngreso time,
+	FechaSalida date,
+	HoraSalida time,
+	MontoCancelado money,
+	
+	constraint FK_PARQUEO_VEHICULOS
+	foreign key (IdParqueo) references PARQUEO(IdParqueo)--- VEHICULOS
+		on update cascade
+		on delete cascade,
+)
+
+create table PARQUEO -- Para la creación de la tabla principal PARQUEO
+(
+	IdParqueo int identity primary key not null,
+	IdEstacionar int,
+	Gerente varchar (20),
+	Teléfono int,
+	CódigoPostal int,
+	Dirección varchar(100),
+	Provincia varchar(20),
+	Ciudad varchar(20),
+	CostoHora int,
+	constraint FK_PARQUEO_VEHICULOS
+	foreign key (IdParqueo) references VEHICULOS(IdParqueo)--- VEHICULOS
+		on update cascade
+		on delete cascade,
+	constraint FK_PARQUEO_ESPACIO
+	foreign key (IdParqueo) references ESPACIO(IdParqueo)-------- ESPACIO
+		on update cascade
+		on delete cascade,
+)
+GO
+CREATE PROCEDURE nuevoIngreso-- Este procedimiento se encarga de guardar un vehículo, guarda la placa y automáticamente la hora y fecha de ingreso.
+@Placa as int-- # de placa
+AS
+INSERT into VEHICULOS (CódigoPlaca,FechaIngreso,HoraIngreso) values (@Placa, GETDATE(), SYSDATETIME()) 
+
+------------------------------------------------------------------------------------------------------------
+go
+CREATE PROCEDURE salidaVehiculos
+
+@Placa as int
+As
+UPDATE VEHICULOS set FechaSalida = GETDATE()
+UPDATE VEHICULOS set HoraSalida = SYSDATETIME()
+UPDATE VEHICULOS SET TiempoEstadia = DATEDIFF (hh,HoraSalida, HoraIngreso) -- Restamos la diferencia de horas 
+WHERE CódigoPlaca=@Placa
+
+-------------------------------------------------------------------------------------------------------------
+GO------------------------------------------------------------------------------Procedimiento para crear la tabla PARQUEO por primera vez---------------------------------------
+CREATE PROCEDURE NuevoParqueo
+-- @idParqueo as int,
+@gerente as varchar(20),
+@telefono as int,
+@codigoPostal as int,
+@direccion as varchar(100),
+@provincia as varchar(20),
+@ciudad as varchar(20),
+@costoHora as int
+AS
+--INSERT into PARQUEO values(@idParqueo,@gerente,@telefono, @codigoPostal, @direccion, @provincia, @ciudad,@costoHora ) 
+INSERT into PARQUEO ( Gerente, Teléfono,CódigoPostal,Dirección, Provincia, Ciudad,CostoHora) values ( @gerente,@telefono, @codigoPostal, @direccion, @provincia, @ciudad,@costoHora ) 
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------Ejecución de procedimientos ----------------------------------------------------------------------------
+EXEC salidaVehiculos 100100
+EXEC nuevoIngreso 100100
+
+EXEC NuevoParqueo  'David Campos', 61372400, 5012, 'Cartago, 100mst sur de la Basílica', 'Cartago' , 'Cartago', 1000
+
+SELECT * FROM PARQUEO
+-- Fin de la creación de la base de datos parquea2

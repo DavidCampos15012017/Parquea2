@@ -4,6 +4,7 @@ CREATE DATABASE parquea2
 use parquea2 -- Ponemos en uso la base de Datos
 
 GO
+----------------------------------CREACIÓN DE TABLAS-----------------------------------
 create table ESPACIO -- Para la creación de la tabla ESPACIO
 (
 	IdEspacio int identity primary key not null,
@@ -15,7 +16,7 @@ Create table VEHICULOS -- Para la creación de la tabla VEHICULOS
 (
 	IdEstacionar int identity primary key not null,
 	CódigoPlaca int, 
-	TiempoEstadia float,
+	TiempoEstadia int,
 	FechaIngreso date,
 	HoraIngreso time,
 	FechaSalida date,
@@ -35,18 +36,25 @@ create table PARQUEO -- Para la creación de la tabla principal PARQUEO
 	Provincia varchar(20),
 	Ciudad varchar(20),
 	CostoHora int,
+	EspacioTotal int, 
+	EspacioOcupado int
 	CONSTRAINT FK_PARQUEO_VEHICULOS FOREIGN KEY (IdEstacionar) REFERENCES VEHICULOS(IdEstacionar),
 	CONSTRAINT FK_PARQUEO_ESPACIO FOREIGN KEY (IdEspacio) REFERENCES ESPACIO(IdEspacio)--CONSTRAINT FK_PARQUEO_ESPACIO FOREIGN KEY (IdParqueo) REFERENCES ESPACIO(IdParqueo)	
 	
 )
 GO
-CREATE PROCEDURE ingresoVehiculos-- Procedimiento que registra un nuevo vehículo en el parqueo
-@Placa as int-- # de placa
+
+-----------------------------------PROCEDIMIENTOS----------------------------------------------
+
+------------------------REGISTRA UN NUEVO VEHÍCULO ( PARÁMETRO: PLACA)-------------------------
+CREATE PROCEDURE ingresoVehiculos
+@Placa as int,-- # de placa
 AS
 INSERT into VEHICULOS (CódigoPlaca,FechaIngreso,HoraIngreso) values (@Placa, GETDATE(), SYSDATETIME()) 
 
-------------------------------------------------------------------------------------------------------------
 go
+
+----------------------- REGISTRA LA SALIDA DE UN VEHÍCULO ( PARÁMETRO: PLACA Y IDPAQUEO )-----
 CREATE PROCEDURE salidaVehiculos-- Procedimiento que registra la Salida del vehículo
 
 @Placa as int,
@@ -64,8 +72,10 @@ UPDATE VEHICULOS SET TiempoEstadia = DATEDIFF (hh,HoraIngreso, HoraSalida) -- Re
 update VEHICULOS SET MontoCancelado =( TiempoEstadia * @costoHora)
 
 where CódigoPlaca = @Placa
--------------------------------------------------------------------------------------------------------------
+
+
 GO
+------------------------ CREA UNA NUEVA SUCURSAL DEL PARQUEO----------------------------------
 CREATE PROCEDURE NuevoParqueo -- Procedimiento que registra cada nuevo parqueo de parquea2
 -- @idParqueo as int,
 @gerente as varchar(20),
@@ -78,37 +88,35 @@ CREATE PROCEDURE NuevoParqueo -- Procedimiento que registra cada nuevo parqueo d
 @espacioTotal as Int
 AS
 INSERT into PARQUEO (Gerente, Teléfono, CódigoPostal, Dirección, Provincia, Ciudad, CostoHora) values (@gerente,@telefono,@codigoPostal,@direccion,@provincia,@ciudad,@costoHora)
-INSERT INTO ESPACIO(EspacioTotal,EspacioOcupado) values (@espacioTotal, 0)
+INSERT INTO ESPACIO(EspacioTotal,EspacioOcupado) values (@espacioTotal, @espacioTotal)
 
 
 Go
-
+---------------------- AL INGRESAR UN VEHÍCULO, DISMINULLE LOS ESPACIOS DISPONIBLES DEL PARQUEO-------
 
 Create Trigger ActualizarEspaciosAlIngresarVehiculos -- Trigget que reduce los espacios con cada ingreso de vehículo
 on VEHICULOS for insert, update
 AS
 update ESPACIO set EspacioOcupado = EspacioOcupado - 1
+
 go
-
-
-
-
+---------------------- AL SALIR UN VEHÍCULO, AUMENTA LOS ESPACIOS DEL PARQUEO-------------------------
 Create Trigger ActualizarEspaciosAlSalirVehiculos -- Trigget que reduce los espacios con cada ingreso de vehículo
 on VEHICULOS for update
 AS
 if update(MontoCancelado) 
 begin
 update ESPACIO set EspacioOcupado = EspacioOcupado + 1
+
 end
 go
 
 
-EXEC salidaVehiculos 100100, 1
-EXEC ingresoVehiculos 200200
+EXEC salidaVehiculos 300300, 1
+EXEC ingresoVehiculos 400400
 
 EXEC NuevoParqueo  'David Campos', 61372400, 5012, 'Cartago, 100mst sur de la Basílica', 'Cartago' , 'Cartago', 1000, 100
 
 SELECT * FROM ESPACIO
 
 GO
-

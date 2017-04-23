@@ -5,13 +5,6 @@ use parquea2 -- Ponemos en uso la base de Datos
 
 GO
 ----------------------------------CREACIÓN DE TABLAS-----------------------------------
-create table ESPACIO -- Para la creación de la tabla ESPACIO
-(
-	IdEspacio int identity primary key not null,
-	EspacioTotal int, 
-	EspacioOcupado int
-)
-GO
 Create table VEHICULOS -- Para la creación de la tabla VEHICULOS
 (
 	IdEstacionar int identity primary key not null,
@@ -37,10 +30,9 @@ create table PARQUEO -- Para la creación de la tabla principal PARQUEO
 	Ciudad varchar(20),
 	CostoHora int,
 	EspacioTotal int, 
-	EspacioOcupado int
-	CONSTRAINT FK_PARQUEO_VEHICULOS FOREIGN KEY (IdEstacionar) REFERENCES VEHICULOS(IdEstacionar),
-	CONSTRAINT FK_PARQUEO_ESPACIO FOREIGN KEY (IdEspacio) REFERENCES ESPACIO(IdEspacio)--CONSTRAINT FK_PARQUEO_ESPACIO FOREIGN KEY (IdParqueo) REFERENCES ESPACIO(IdParqueo)	
-	
+	EspacioOcupado int,
+	CONSTRAINT FK_PARQUEO_VEHICULOS FOREIGN KEY (IdEstacionar) REFERENCES VEHICULOS(IdEstacionar)
+
 )
 GO
 
@@ -48,7 +40,7 @@ GO
 
 ------------------------REGISTRA UN NUEVO VEHÍCULO ( PARÁMETRO: PLACA)-------------------------
 CREATE PROCEDURE ingresoVehiculos
-@Placa as int,-- # de placa
+@Placa as int-- # de placa
 AS
 INSERT into VEHICULOS (CódigoPlaca,FechaIngreso,HoraIngreso) values (@Placa, GETDATE(), SYSDATETIME()) 
 
@@ -57,22 +49,34 @@ go
 ----------------------- REGISTRA LA SALIDA DE UN VEHÍCULO ( PARÁMETRO: PLACA Y IDPAQUEO )-----
 CREATE PROCEDURE salidaVehiculos-- Procedimiento que registra la Salida del vehículo
 
-@Placa as int,
+@id as int,
 @idParqueo as int
 As
 DECLARE @costoHora as INT
-
-select @costoHora=CostoHora from PARQUEO
-where IdParqueo = @idParqueo
-
+Declare @estadia as int
+select  @costoHora = CostoHora from PARQUEO
+	where IdParqueo = @idParqueo
 
 UPDATE VEHICULOS set FechaSalida = GETDATE()
+where [IdEstacionar] = @id
 UPDATE VEHICULOS set HoraSalida = SYSDATETIME()
-UPDATE VEHICULOS SET TiempoEstadia = DATEDIFF (hh,HoraIngreso, HoraSalida) -- Restamos la diferencia de horas 
-update VEHICULOS SET MontoCancelado =( TiempoEstadia * @costoHora)
+where [IdEstacionar] = @id
 
-where CódigoPlaca = @Placa
+UPDATE VEHICULOS SET TiempoEstadia= DATEDIFF (hh,HoraIngreso, HoraSalida)
+where [IdEstacionar] = @id
 
+select @estadia=TiempoEstadia from VEHICULOS where [IdEstacionar] = @id
+
+if @estadia = 0 
+	begin
+		update VEHICULOS SET MontoCancelado =(@costoHora)
+		where [IdEstacionar] = @id
+	end
+else
+	begin
+		update VEHICULOS SET MontoCancelado =(TiempoEstadia *@costoHora)
+		where [IdEstacionar] = @id
+	end
 
 GO
 ------------------------ CREA UNA NUEVA SUCURSAL DEL PARQUEO----------------------------------
@@ -85,38 +89,45 @@ CREATE PROCEDURE NuevoParqueo -- Procedimiento que registra cada nuevo parqueo d
 @provincia as varchar(20),
 @ciudad as varchar(20),
 @costoHora as int,
-@espacioTotal as Int
+@espacioTotal int, 
+@espacioOcupado int
 AS
-INSERT into PARQUEO (Gerente, Teléfono, CódigoPostal, Dirección, Provincia, Ciudad, CostoHora) values (@gerente,@telefono,@codigoPostal,@direccion,@provincia,@ciudad,@costoHora)
-INSERT INTO ESPACIO(EspacioTotal,EspacioOcupado) values (@espacioTotal, @espacioTotal)
-
+INSERT into PARQUEO (Gerente, Teléfono, CódigoPostal, Dirección, Provincia, Ciudad, CostoHora,EspacioTotal, EspacioOcupado) values (@gerente,@telefono,@codigoPostal,@direccion,@provincia,@ciudad,@costoHora,@espacioTotal,@espacioOcupado)
 
 Go
 ---------------------- AL INGRESAR UN VEHÍCULO, DISMINULLE LOS ESPACIOS DISPONIBLES DEL PARQUEO-------
 
 Create Trigger ActualizarEspaciosAlIngresarVehiculos -- Trigget que reduce los espacios con cada ingreso de vehículo
-on VEHICULOS for insert, update
+on VEHICULOS for insert
 AS
-update ESPACIO set EspacioOcupado = EspacioOcupado - 1
+update PARQUEO set EspacioOcupado = EspacioOcupado - 1
 
 go
 ---------------------- AL SALIR UN VEHÍCULO, AUMENTA LOS ESPACIOS DEL PARQUEO-------------------------
-Create Trigger ActualizarEspaciosAlSalirVehiculos -- Trigget que reduce los espacios con cada ingreso de vehículo
-on VEHICULOS for update
+Create Trigger Espacios_Salida_Vehicular-- No USAR POR EL MOMENTO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+on VEHICULOS for update-- > CUANDO HAY ACTUALIZACIONES EN LA TABLA vehiculos
 AS
-if update(MontoCancelado) 
-begin
-update ESPACIO set EspacioOcupado = EspacioOcupado + 1
-
-end
+declare @idParqueo int
+if update(MontoCancelado) -->Cuando se actualiza el MontoCancelado
+	begin
+		
+		select @idParqueo=IdParqueo from PARQUEO
+		update PARQUEO set EspacioOcupado = EspacioOcupado + 1
+			where IdParqueo=@idParqueo
+	end
 go
 
 
-EXEC salidaVehiculos 300300, 1
-EXEC ingresoVehiculos 400400
+EXEC salidaVehiculos 10, 1
 
-EXEC NuevoParqueo  'David Campos', 61372400, 5012, 'Cartago, 100mst sur de la Basílica', 'Cartago' , 'Cartago', 1000, 100
+EXEC ingresoVehiculos 100000
+EXEC ingresoVehiculos 100100
+EXEC ingresoVehiculos 300300
 
-SELECT * FROM ESPACIO
+EXEC NuevoParqueo  'David Campos', 61372400, 5012, 'Cartago, 100mst sur de la Basílica', 'Cartago' , 'Cartago', 1000, 100, 100
+
+SELECT * FROM VEHICULOS
+SELECT * FROM PARQUEO
+
 
 GO
